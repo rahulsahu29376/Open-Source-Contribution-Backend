@@ -22,7 +22,24 @@ if (hasSupabaseConfig) {
       },
     });
     isUsingSupabase = true;
-    console.log('Connected to Supabase PostgreSQL database.');
+    console.log('Connected to Supabase project:', config.supabase.url);
+
+    // Verify if tables are initialized in Supabase
+    supabase.from('profiles').select('id').limit(1).then(({ error }) => {
+      if (error && (error.code === 'PGRST205' || error.message?.includes('schema cache'))) {
+        console.warn('----------------------------------------------------');
+        console.warn('⚠️  Supabase tables not yet created in PostgreSQL.');
+        console.warn('👉 Please run database/schema.sql in your Supabase SQL Editor.');
+        console.warn('   Using built-in local store until tables are created.');
+        console.warn('----------------------------------------------------');
+        isUsingSupabase = false;
+      } else {
+        console.log('✅ Supabase PostgreSQL tables verified and active.');
+        isUsingSupabase = true;
+      }
+    }).catch(() => {
+      isUsingSupabase = false;
+    });
   } catch (err) {
     console.warn('Failed to initialize Supabase client, falling back to local store:', err.message);
   }

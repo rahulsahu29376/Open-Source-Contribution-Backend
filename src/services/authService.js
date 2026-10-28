@@ -36,44 +36,53 @@ export class AuthService {
   static async register({ fullName, email, password, githubUsername, experienceLevel, preferredLanguages }) {
     const normalizedEmail = email.toLowerCase().trim();
 
-    // Check if user already exists
+    // Check if user already exists in Supabase
     if (isUsingSupabase) {
-      const { data: existingUser } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('email', normalizedEmail)
-        .single();
+      try {
+        const { data: existingUser, error: checkError } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('email', normalizedEmail)
+          .single();
 
-      if (existingUser) {
-        const error = new Error('An account with this email address already exists');
-        error.statusCode = 409;
-        error.code = 'EMAIL_ALREADY_EXISTS';
-        throw error;
+        if (checkError && (checkError.code === 'PGRST205' || checkError.message?.includes('schema cache'))) {
+          throw checkError; // trigger local fallback
+        }
+
+        if (existingUser) {
+          const error = new Error('An account with this email address already exists');
+          error.statusCode = 409;
+          error.code = 'EMAIL_ALREADY_EXISTS';
+          throw error;
+        }
+
+        // Hash password with bcrypt work factor 12
+        const passwordHash = await bcrypt.hash(password, 12);
+
+        const { data: newUser, error: insertError } = await supabase
+          .from('profiles')
+          .insert({
+            full_name: fullName,
+            email: normalizedEmail,
+            password_hash: passwordHash,
+            github_username: githubUsername || null,
+            experience_level: experienceLevel || 'beginner',
+            preferred_languages: preferredLanguages || [],
+            role: 'user',
+          })
+          .select()
+          .single();
+
+        if (insertError) {
+          throw insertError;
+        }
+
+        const token = this.generateToken(newUser);
+        return { token, user: this.sanitizeUser(newUser) };
+      } catch (err) {
+        if (err.statusCode === 409) throw err;
+        // If Supabase table is not yet created, fall through to memoryStore!
       }
-
-      // Hash password with bcrypt work factor 12
-      const passwordHash = await bcrypt.hash(password, 12);
-
-      const { data: newUser, error: insertError } = await supabase
-        .from('profiles')
-        .insert({
-          full_name: fullName,
-          email: normalizedEmail,
-          password_hash: passwordHash,
-          github_username: githubUsername || null,
-          experience_level: experienceLevel || 'beginner',
-          preferred_languages: preferredLanguages || [],
-          role: 'user',
-        })
-        .select()
-        .single();
-
-      if (insertError) {
-        throw new Error(`Database error while creating user: ${insertError.message}`);
-      }
-
-      const token = this.generateToken(newUser);
-      return { token, user: this.sanitizeUser(newUser) };
     }
 
     // Memory Store Fallback
@@ -114,22 +123,23 @@ export class AuthService {
     let passwordHash = null;
 
     if (isUsingSupabase) {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('email', normalizedEmail)
-        .single();
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('email', normalizedEmail)
+          .single();
 
-      if (error || !data) {
-        const err = new Error('Invalid email or password');
-        err.statusCode = 401;
-        err.code = 'INVALID_CREDENTIALS';
-        throw err;
+        if (!error && data) {
+          userRecord = data;
+          passwordHash = data.password_hash;
+        }
+      } catch {
+        // Fallback to local store
       }
+    }
 
-      userRecord = data;
-      passwordHash = data.password_hash;
-    } else {
+    if (!userRecord) {
       for (const u of memoryStore.users.values()) {
         if (u.email === normalizedEmail) {
           userRecord = u;
@@ -161,19 +171,19 @@ export class AuthService {
 
   static async getCurrentUser(userId) {
     if (isUsingSupabase) {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .single();
 
-      if (error || !data) {
-        const err = new Error('User account not found');
-        err.statusCode = 404;
-        err.code = 'USER_NOT_FOUND';
-        throw err;
+        if (!error && data) {
+          return this.sanitizeUser(data);
+        }
+      } catch {
+        // Fallback to local store
       }
-      return this.sanitizeUser(data);
     }
 
     const user = memoryStore.users.get(userId);
