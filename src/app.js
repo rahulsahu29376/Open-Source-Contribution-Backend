@@ -13,31 +13,13 @@ const app = express();
 // Security Headers
 app.use(helmet());
 
-// Cross-Origin Resource Sharing
-const allowedOrigins = [
-  config.frontendUrl,
-  'http://localhost:5173',
-  'http://127.0.0.1:5173',
-];
-
+// Cross-Origin Resource Sharing - allow all domains
 app.use(
   cors({
-    origin: (origin, callback) => {
-      // Allow requests with no origin, or matching allowed origins, render domains, or vercel domains
-      if (
-        !origin ||
-        allowedOrigins.includes(origin) ||
-        origin.endsWith('.onrender.com') ||
-        origin.endsWith('.vercel.app')
-      ) {
-        callback(null, true);
-      } else {
-        callback(new Error(`Origin ${origin} not allowed by CORS`));
-      }
-    },
+    origin: true, // Allow all domains and dynamically reflect requesting origin for credentials support
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
   })
 );
 
