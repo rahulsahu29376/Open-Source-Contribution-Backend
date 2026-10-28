@@ -23,8 +23,13 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile apps, curl, postman) or matching allowed origins
-      if (!origin || allowedOrigins.includes(origin) || origin.endsWith('.onrender.com')) {
+      // Allow requests with no origin, or matching allowed origins, render domains, or vercel domains
+      if (
+        !origin ||
+        allowedOrigins.includes(origin) ||
+        origin.endsWith('.onrender.com') ||
+        origin.endsWith('.vercel.app')
+      ) {
         callback(null, true);
       } else {
         callback(new Error(`Origin ${origin} not allowed by CORS`));
