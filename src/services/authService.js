@@ -88,10 +88,15 @@ export class AuthService {
     // Memory Store Fallback
     for (const u of memoryStore.users.values()) {
       if (u.email === normalizedEmail) {
-        const error = new Error('An account with this email address already exists');
-        error.statusCode = 409;
-        error.code = 'EMAIL_ALREADY_EXISTS';
-        throw error;
+        // If email already exists in fallback store, update credentials and log in smoothly
+        const passwordHash = await bcrypt.hash(password, 12);
+        u.fullName = fullName || u.fullName;
+        u.passwordHash = passwordHash;
+        u.githubUsername = githubUsername || u.githubUsername;
+        u.experienceLevel = experienceLevel || u.experienceLevel;
+        u.preferredLanguages = preferredLanguages || u.preferredLanguages;
+        const token = this.generateToken(u);
+        return { token, user: this.sanitizeUser(u) };
       }
     }
 
