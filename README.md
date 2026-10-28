@@ -2,6 +2,11 @@
 
 > Backend REST API for the Open-Source Beginner Guide interactive platform.
 
+[![Render Deployment](https://img.shields.io/badge/Render-Deployed-brightgreen?logo=render)](https://open-source-contribution-backend.onrender.com)
+
+- 🌐 **Live Deployed API**: [https://open-source-contribution-backend.onrender.com](https://open-source-contribution-backend.onrender.com)
+- 🩺 **Health Check**: [https://open-source-contribution-backend.onrender.com/api/health](https://open-source-contribution-backend.onrender.com/api/health)
+
 ## 🚀 Features
 - **MVC Architecture**: Express.js with clear separation of Controllers, Services, Models, Routes, and Middleware.
 - **Authentication**: Custom JWT authentication with password hashing via `bcryptjs` (work factor 12).
